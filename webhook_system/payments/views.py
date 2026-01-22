@@ -26,6 +26,14 @@ def error_response(code: str, message: str, http_status: int, details: dict | No
 class PaymentWebhookAPIView(APIView):
     """
     POST /webhook/payments
+
+    1) Signature validation (must use raw body)
+    2) DRF JSON parsing (cleaner than manual json.loads)
+    3) Convert payload to list of events (supports your fixed company payload)
+    4) Process each event object in the list
+    5) Normalize event_type for consistent output / storage (optional but clean)
+    6) Store each event in DB, avoiding duplicates via unique event_id constraint
+    7) Return summary of accepted vs duplicate events
     """
     authentication_classes = []
     permission_classes = []
@@ -35,7 +43,7 @@ class PaymentWebhookAPIView(APIView):
         raw_body = request.body
         signature = request.headers.get("X-Razorpay-Signature")
         
-        # 1) Signature validation (must use raw body)
+        # 
         if not verify_signature(settings.WEBHOOK_SECRET, raw_body, signature):
             return error_response(
                 "INVALID_SIGNATURE",
@@ -43,7 +51,7 @@ class PaymentWebhookAPIView(APIView):
                 status.HTTP_403_FORBIDDEN,
             )
 
-        # 2) DRF JSON parsing (cleaner than manual json.loads)
+        # 
         try:
             payload = request.data
         except ParseError:
@@ -53,7 +61,7 @@ class PaymentWebhookAPIView(APIView):
                 status.HTTP_400_BAD_REQUEST,
             )
         
-        # 3) Convert payload to list of events (supports your fixed company payload)
+        # 
         try:
             events = ensure_event_list(payload)
         except PayloadError as e:
@@ -66,7 +74,7 @@ class PaymentWebhookAPIView(APIView):
         accepted = 0
         duplicates = 0
 
-        # 4) Process each event object in the list
+        # 
         for event_obj in events:
             try:
                 event_type, event_id, payment_id = extract_fields(event_obj)
@@ -77,7 +85,7 @@ class PaymentWebhookAPIView(APIView):
                     status.HTTP_400_BAD_REQUEST,
                 )
 
-            # Normalize event_type for consistent output / storage (optional but clean)
+            # 
             event_type = normalize_event_type(event_type)
 
             try:
