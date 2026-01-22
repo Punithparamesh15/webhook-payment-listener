@@ -15,7 +15,7 @@ from django.db.models import Count
 
 # Create your views here.
 """
-Consistent error response format (reviewer-friendly).
+Consistent error response format.
 """
 def error_response(code: str, message: str, http_status: int, details: dict | None = None):
     return Response(
